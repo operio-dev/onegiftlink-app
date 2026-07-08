@@ -12,17 +12,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {brand?.logo_url ? (
-              <img src={brand.logo_url} alt={brand.name} className="h-7 w-7 rounded-lg object-cover" />
+              <img src={brand.logo_url} alt={brand.name} className="h-9 w-auto max-w-[160px] object-contain" />
             ) : (
-              <div className="grid h-7 w-7 place-items-center rounded-lg bg-gray-900 text-white text-sm">
-                🎁
-              </div>
+              <>
+                <div className="grid h-9 w-9 place-items-center rounded-lg bg-gray-900 text-white">
+                  🎁
+                </div>
+                <span className="text-[15px] font-semibold tracking-tight">OneGiftLink</span>
+              </>
             )}
-            <span className="text-[15px] font-semibold tracking-tight">
-              {brand?.name || "OneGiftLink"}
-            </span>
           </div>
           <Button variant="ghost" onClick={() => supabase.auth.signOut()}>
             Esci
