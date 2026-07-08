@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5">
           <div className="flex items-center gap-2.5">
             {brand?.logo_url ? (
-              <img src={brand.logo_url} alt={brand.name} className="h-9 w-auto max-w-[160px] object-contain" />
+              <img src={brand.logo_url} alt={brand.name} className="h-14 w-auto max-w-[160px] object-contain" />
             ) : (
               <>
                 <div className="grid h-9 w-9 place-items-center rounded-lg bg-gray-900 text-white">
