@@ -25,7 +25,7 @@ export default function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center justify-center">
-          <img src="/logo.png" alt="OneGiftLink" className="h-30 w-auto" />
+          <img src="/logo.png" alt="OneGiftLink" className="h-20 w-auto" />
         </div>
         <Card className="p-8">
           <h1 className="text-xl font-semibold text-gray-900">Accedi</h1>
