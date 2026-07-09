@@ -7,6 +7,8 @@ import OverviewPage from "./pages/OverviewPage";
 import DashboardHome from "./pages/DashboardHome";
 import CreatorsPage from "./pages/CreatorsPage";
 import SettingsPage from "./pages/SettingsPage";
+import ContentLibrary from "./pages/ContentLibrary";
+import CreatorDetailPage from "./pages/CreatorDetailPage";
 import CampaignView from "./pages/CampaignView";
 import CreatorGiftPage from "./pages/CreatorGiftPage";
 
@@ -30,6 +32,8 @@ function ProtectedApp() {
         <Route path="/campagne" element={<DashboardHome />} />
         <Route path="/campagna/:id" element={<CampaignView />} />
         <Route path="/creator" element={<CreatorsPage />} />
+        <Route path="/creator/:handle" element={<CreatorDetailPage />} />
+        <Route path="/contenuti" element={<ContentLibrary />} />
         <Route path="/impostazioni" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
