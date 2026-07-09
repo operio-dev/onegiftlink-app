@@ -34,6 +34,8 @@ export default function CreatorGiftPage() {
       }
       const g = data[0] as GiftPublicView;
       setGift(g);
+      // segna il link come aperto (solo la prima volta)
+      supabase.rpc("mark_gift_opened", { gift_token: token });
       if (g.brand_country) setCountry(g.brand_country);
       if (g.status === "completed" || g.status === "shipped") setDone(true);
       if (g.product_name) {
@@ -57,6 +59,7 @@ export default function CreatorGiftPage() {
     setSubmitting(true);
     const { data, error } = await supabase.rpc("submit_gift", {
       gift_token: token,
+      p_product: selectedProduct.name,
       p_color: color || null,
       p_size: size || null,
       p_name: name,
@@ -66,10 +69,25 @@ export default function CreatorGiftPage() {
       p_country: country,
     });
     setSubmitting(false);
-    if (error || data === false) {
-      setError("Qualcosa è andato storto. Il link potrebbe essere scaduto o già usato.");
-    } else {
-      setDone(true);
+    if (error) {
+      setError("Qualcosa è andato storto. Riprova tra qualche istante.");
+      return;
+    }
+    switch (data as string) {
+      case "ok":
+        setDone(true);
+        break;
+      case "out_of_stock":
+        setError("Questa variante e appena finita. Scegline un'altra, se disponibile.");
+        break;
+      case "used":
+        setDone(true);
+        break;
+      case "expired":
+        setNotFound(true);
+        break;
+      default:
+        setError("Il link non e piu valido. Contatta il brand.");
     }
   }
 
@@ -93,6 +111,21 @@ export default function CreatorGiftPage() {
     );
   }
 
+  if (gift && !gift.product_name && gift.products.length > 0 &&
+      gift.products.every((p) => p.stock != null && ((gift.availability || [])
+        .filter((a) => a.product === p.name)
+        .reduce((s, a) => s + a.count, 0) >= (p.stock as number)))) {
+    return (
+      <CenterCard>
+        <div className="text-5xl">&#128533;</div>
+        <h1 className="mt-4 text-xl font-semibold text-gray-900">Regali esauriti</h1>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+          I pezzi disponibili per questa campagna sono finiti. Contatta {gift.brand_name} per saperne di piu.
+        </p>
+      </CenterCard>
+    );
+  }
+
   if (done) {
     return (
       <CenterCard>
@@ -106,6 +139,20 @@ export default function CreatorGiftPage() {
   }
 
   if (!gift) return null;
+
+  // quanti pezzi gia riscattati per prodotto/colore
+  const claimedOf = (product: string, col?: string) =>
+    (gift.availability || [])
+      .filter((a) => a.product === product && (col === undefined || a.color === col))
+      .reduce((s, a) => s + a.count, 0);
+
+  const productSoldOut = (p: Product) =>
+    p.stock != null && claimedOf(p.name) >= p.stock;
+
+  const colorSoldOut = (p: Product, c: string) =>
+    p.colorStock?.[c] != null && claimedOf(p.name, c) >= (p.colorStock[c] as number);
+
+  const availableProducts = gift.products.filter((p) => !productSoldOut(p));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 px-4 py-8 sm:py-12">
@@ -152,13 +199,13 @@ export default function CreatorGiftPage() {
             )}
 
             {/* Scelta prodotto se più di uno */}
-            {!gift.product_name && gift.products.length > 1 && (
+            {!gift.product_name && availableProducts.length > 1 && (
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Scegli il tuo regalo
                 </label>
                 <div className="grid gap-2">
-                  {gift.products.map((p, i) => (
+                  {availableProducts.map((p, i) => (
                     <button
                       key={i}
                       type="button"
@@ -188,19 +235,27 @@ export default function CreatorGiftPage() {
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">Colore</label>
                     <div className="flex flex-wrap gap-2">
-                      {selectedProduct.colors.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => setColor(c)}
-                          style={color === c ? { backgroundColor: accent, borderColor: accent } : undefined}
-                          className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                            color === c ? "text-white" : "border-gray-200 text-gray-700 hover:border-gray-400"
-                          }`}
-                        >
-                          {c}
-                        </button>
-                      ))}
+                      {selectedProduct.colors.map((c) => {
+                        const out = colorSoldOut(selectedProduct, c);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            disabled={out}
+                            onClick={() => setColor(c)}
+                            style={color === c ? { backgroundColor: accent, borderColor: accent } : undefined}
+                            className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
+                              out
+                                ? "cursor-not-allowed border-gray-100 text-gray-300 line-through"
+                                : color === c
+                                ? "text-white"
+                                : "border-gray-200 text-gray-700 hover:border-gray-400"
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
