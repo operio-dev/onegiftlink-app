@@ -34,10 +34,19 @@ const IconSettings = () => (
   </svg>
 );
 
+const IconContent = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <path d="m21 15-5-5L5 21" />
+  </svg>
+);
+
 const NAV = [
   { to: "/", label: "Panoramica", icon: IconOverview, end: true },
   { to: "/campagne", label: "Campagne", icon: IconCampaigns, end: false },
   { to: "/creator", label: "Creator", icon: IconCreators, end: false },
+  { to: "/contenuti", label: "Contenuti", icon: IconContent, end: false },
   { to: "/impostazioni", label: "Impostazioni", icon: IconSettings, end: false },
 ];
 
