@@ -160,7 +160,7 @@ function NewCampaignForm({
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
-  const [products, setProducts] = useState<Product[]>([{ name: "", colors: [], sizes: [] }]);
+  const [products, setProducts] = useState<Product[]>([{ name: "", colors: [], sizes: [], stock: null, colorStock: {} }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -170,6 +170,22 @@ function NewCampaignForm({
         if (idx !== i) return p;
         if (field === "name") return { ...p, name: value };
         return { ...p, [field]: value.split(",").map((s) => s.trim()).filter(Boolean) };
+      })
+    );
+  }
+
+  function setStock(i: number, value: string) {
+    setProducts((prev) => prev.map((p, idx) => (idx === i ? { ...p, stock: value ? parseInt(value) : null } : p)));
+  }
+
+  function setColorStock(i: number, color: string, value: string) {
+    setProducts((prev) =>
+      prev.map((p, idx) => {
+        if (idx !== i) return p;
+        const cs = { ...(p.colorStock || {}) };
+        if (value) cs[color] = parseInt(value);
+        else delete cs[color];
+        return { ...p, colorStock: cs };
       })
     );
   }
@@ -220,13 +236,47 @@ function NewCampaignForm({
                   <Input placeholder="Nome prodotto (es. Felpa Oversize)" value={p.name} onChange={(e) => updateProduct(i, "name", e.target.value)} />
                   <Input placeholder="Colori separati da virgola (es. Nero, Panna)" value={p.colors.join(", ")} onChange={(e) => updateProduct(i, "colors", e.target.value)} />
                   <Input placeholder="Taglie separate da virgola (es. XS, S, M, L)" value={p.sizes.join(", ")} onChange={(e) => updateProduct(i, "sizes", e.target.value)} />
+
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs font-medium text-gray-600">Scorte da destinare al gifting (opzionale)</p>
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      Quando il limite viene raggiunto, la variante non e piu selezionabile dai creator.
+                    </p>
+                    <div className="mt-2.5">
+                      <input
+                        type="number"
+                        min={1}
+                        value={p.stock ?? ""}
+                        onChange={(e) => setStock(i, e.target.value)}
+                        placeholder="Pezzi totali (es. 50)"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                      />
+                    </div>
+                    {p.colors.length > 0 && (
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {p.colors.map((c) => (
+                          <div key={c} className="flex items-center gap-2">
+                            <span className="w-20 shrink-0 truncate text-xs text-gray-500">{c}</span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={p.colorStock?.[c] ?? ""}
+                              onChange={(e) => setColorStock(i, c, e.target.value)}
+                              placeholder="max"
+                              className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
           <button
             type="button"
-            onClick={() => setProducts((prev) => [...prev, { name: "", colors: [], sizes: [] }])}
+            onClick={() => setProducts((prev) => [...prev, { name: "", colors: [], sizes: [], stock: null, colorStock: {} }])}
             className="mt-3 text-sm font-medium text-brand hover:underline"
           >
             + Aggiungi prodotto
