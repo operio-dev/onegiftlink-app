@@ -134,6 +134,7 @@ export default function CampaignView() {
         <GenerateLinkForm
           campaign={campaign}
           brandId={brand!.id}
+          expiryDays={brand?.default_expiry_days ?? null}
           onClose={() => setShowGen(false)}
           onGenerated={() => {
             setShowGen(false);
@@ -231,11 +232,13 @@ export default function CampaignView() {
 function GenerateLinkForm({
   campaign,
   brandId,
+  expiryDays,
   onClose,
   onGenerated,
 }: {
   campaign: Campaign;
   brandId: string;
+  expiryDays: number | null;
   onClose: () => void;
   onGenerated: () => void;
 }) {
@@ -252,9 +255,18 @@ function GenerateLinkForm({
     setError(null);
     setSaving(true);
     const cleanHandle = handle.trim().replace(/^@/, "");
+    const expiresAt = expiryDays
+      ? new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
     const { data, error } = await supabase
       .from("gifts")
-      .insert({ campaign_id: campaign.id, brand_id: brandId, instagram_handle: "@" + cleanHandle, product_name: productName || null })
+      .insert({
+        campaign_id: campaign.id,
+        brand_id: brandId,
+        instagram_handle: "@" + cleanHandle,
+        product_name: productName || null,
+        expires_at: expiresAt,
+      })
       .select("token")
       .single();
     setSaving(false);
@@ -305,7 +317,10 @@ function GenerateLinkForm({
               {copied ? "Copiato" : "Copia"}
             </Button>
           </div>
-          <p className="mt-2 text-xs text-gray-400">Potrai ricopiare questo link in qualsiasi momento dalla tabella.</p>
+          <p className="mt-2 text-xs text-gray-400">
+            Potrai ricopiare questo link in qualsiasi momento dalla tabella.
+            {expiryDays ? ` Scade tra ${expiryDays} giorni.` : ""}
+          </p>
           <div className="mt-4 flex gap-2">
             <Button
               variant="secondary"
