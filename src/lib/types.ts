@@ -4,6 +4,8 @@ export interface Product {
   name: string;
   colors: string[];
   sizes: string[];
+  stock?: number | null;                    // cap totale pezzi regalabili
+  colorStock?: Record<string, number>;      // cap per singolo colore
 }
 
 export interface Brand {
@@ -24,6 +26,19 @@ export interface Campaign {
   name: string;
   products: Product[];
   is_active: boolean;
+  created_at: string;
+}
+
+export interface Content {
+  id: string;
+  brand_id: string;
+  gift_id: string | null;
+  creator_handle: string;
+  platform: string | null;
+  post_url: string | null;
+  image_url: string | null;
+  rights_granted: boolean;
+  notes: string | null;
   created_at: string;
 }
 
@@ -56,6 +71,7 @@ export interface Gift {
   status: GiftStatus;
   posted: boolean | null;
   expires_at: string | null;
+  opened_at: string | null;
   completed_at: string | null;
   created_at: string;
 }
@@ -73,4 +89,5 @@ export interface GiftPublicView {
   product_name: string | null;
   status: GiftStatus;
   expires_at: string | null;
+  availability: { product: string; color: string; count: number }[];
 }
