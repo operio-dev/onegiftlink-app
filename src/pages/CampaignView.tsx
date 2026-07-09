@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
-import type { Campaign, Gift, GiftStatus } from "../lib/types";
+import type { Campaign, Gift, GiftStatus, Creator } from "../lib/types";
 import { Button, Input, Card, Badge, Spinner } from "../components/ui";
 
 const STATUS: Record<GiftStatus, { label: string; color: "gray" | "blue" | "green" | "amber" }> = {
@@ -61,20 +61,13 @@ export default function CampaignView() {
   }
 
   function exportCSV() {
-    const headers = ["Creator", "Prodotto", "Colore", "Taglia", "Nome", "Indirizzo", "Citta", "CAP", "Paese", "Stato", "Postato"];
+    const headers = ["Creator", "Link", "Prodotto", "Colore", "Taglia", "Nome", "Indirizzo", "Citta", "CAP", "Paese", "Stato", "Postato"];
     const rows = gifts.map((g) => [
-      g.instagram_handle, g.product_name || "", g.selected_color || "", g.selected_size || "",
+      g.instagram_handle, `${window.location.origin}/g/${g.token}`, g.product_name || "", g.selected_color || "", g.selected_size || "",
       g.address_name || "", g.address_line || "", g.address_city || "", g.address_zip || "", g.address_country || "",
       STATUS[g.status].label, g.posted === true ? "Si" : g.posted === false ? "No" : "",
     ]);
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${campaign?.name || "campagna"}-gifts.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCSV([headers, ...rows], `${campaign?.name || "campagna"}-gifts.csv`);
   }
 
   if (loading) return <Spinner />;
@@ -82,23 +75,18 @@ export default function CampaignView() {
     return (
       <div className="text-center">
         <p className="text-gray-500">Campagna non trovata.</p>
-        <Link to="/campagne" className="mt-2 inline-block text-sm text-brand hover:underline">
-          Torna alle campagne
-        </Link>
+        <Link to="/campagne" className="mt-2 inline-block text-sm text-brand hover:underline">Torna alle campagne</Link>
       </div>
     );
 
   const claimed = gifts.filter((g) => g.status === "completed" || g.status === "shipped").length;
   const claimRate = gifts.length ? Math.round((claimed / gifts.length) * 100) : 0;
   const posted = gifts.filter((g) => g.posted === true).length;
-
   const filtered = gifts.filter((g) => g.instagram_handle.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div>
-      <Link to="/campagne" className="mb-4 inline-block text-sm text-gray-500 hover:text-gray-800">
-        &larr; Campagne
-      </Link>
+      <Link to="/campagne" className="mb-4 inline-block text-sm text-gray-500 hover:text-gray-800">&larr; Campagne</Link>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -112,41 +100,26 @@ export default function CampaignView() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Card className="p-5">
-          <p className="text-sm text-gray-500">Link inviati</p>
-          <p className="mt-1 text-2xl font-semibold">{gifts.length}</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-sm text-gray-500">Riscattati</p>
-          <p className="mt-1 text-2xl font-semibold">{claimed}</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-sm text-gray-500">Tasso riscatto</p>
-          <p className="mt-1 text-2xl font-semibold">{claimRate}%</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-sm text-gray-500">Hanno postato</p>
-          <p className="mt-1 text-2xl font-semibold">{posted}</p>
-        </Card>
+        <Card className="p-5"><p className="text-sm text-gray-500">Link inviati</p><p className="mt-1 text-2xl font-semibold">{gifts.length}</p></Card>
+        <Card className="p-5"><p className="text-sm text-gray-500">Riscattati</p><p className="mt-1 text-2xl font-semibold">{claimed}</p></Card>
+        <Card className="p-5"><p className="text-sm text-gray-500">Tasso riscatto</p><p className="mt-1 text-2xl font-semibold">{claimRate}%</p></Card>
+        <Card className="p-5"><p className="text-sm text-gray-500">Hanno postato</p><p className="mt-1 text-2xl font-semibold">{posted}</p></Card>
       </div>
 
-      {showGen && (
-        <GenerateLinkForm
+      {showGen && brand && (
+        <GenerateLinks
           campaign={campaign}
-          brandId={brand!.id}
-          expiryDays={brand?.default_expiry_days ?? null}
+          brandId={brand.id}
+          expiryDays={brand.default_expiry_days ?? null}
           onClose={() => setShowGen(false)}
-          onGenerated={() => {
-            setShowGen(false);
-            load();
-          }}
+          onDone={() => { setShowGen(false); load(); }}
         />
       )}
 
       {gifts.length === 0 ? (
         <Card className="p-12 text-center">
           <p className="font-medium text-gray-900">Nessun link generato</p>
-          <p className="mt-1 text-sm text-gray-500">Genera il primo link regalo e invialo a un creator.</p>
+          <p className="mt-1 text-sm text-gray-500">Genera i link e inviali ai creator.</p>
         </Card>
       ) : (
         <>
@@ -178,15 +151,9 @@ export default function CampaignView() {
                       </td>
                       <td className="px-4 py-3 text-gray-600">{g.selected_size || <span className="text-gray-400">-</span>}</td>
                       <td className="px-4 py-3 text-gray-600">
-                        {g.address_city ? (
-                          <span className="text-xs">{g.address_line}, {g.address_city} {g.address_zip}</span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        {g.address_city ? <span className="text-xs">{g.address_line}, {g.address_city} {g.address_zip}</span> : <span className="text-gray-400">-</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <Badge color={STATUS[g.status].color}>{STATUS[g.status].label}</Badge>
-                      </td>
+                      <td className="px-4 py-3"><Badge color={STATUS[g.status].color}>{STATUS[g.status].label}</Badge></td>
                       <td className="px-4 py-3">
                         <button onClick={() => togglePosted(g)} className="text-lg" title="Clicca per cambiare">
                           {g.posted === true ? "\u2705" : g.posted === false ? "\u274C" : "\u23F3"}
@@ -194,23 +161,13 @@ export default function CampaignView() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => copyLink(g)}
-                            className="rounded-md px-2 py-1 text-xs font-medium text-brand hover:bg-blue-50"
-                            title="Copia il link da inviare"
-                          >
+                          <button onClick={() => copyLink(g)} className="rounded-md px-2 py-1 text-xs font-medium text-brand hover:bg-blue-50">
                             {copiedId === g.id ? "Copiato" : "Copia link"}
                           </button>
                           {g.status === "completed" && (
-                            <button onClick={() => markShipped(g)} className="rounded-md px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50">
-                              Spedito
-                            </button>
+                            <button onClick={() => markShipped(g)} className="rounded-md px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50">Spedito</button>
                           )}
-                          <button
-                            onClick={() => deleteGift(g)}
-                            className="rounded-md p-1.5 text-gray-300 hover:bg-red-50 hover:text-red-500"
-                            title="Elimina link"
-                          >
+                          <button onClick={() => deleteGift(g)} className="rounded-md p-1.5 text-gray-300 hover:bg-red-50 hover:text-red-500" title="Elimina link">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
                               <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
                             </svg>
@@ -229,51 +186,168 @@ export default function CampaignView() {
   );
 }
 
-function GenerateLinkForm({
+function downloadCSV(rows: string[][], filename: string) {
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ====================== Generazione link (singola o massiva) ====================== */
+function GenerateLinks({
   campaign,
   brandId,
   expiryDays,
   onClose,
-  onGenerated,
+  onDone,
 }: {
   campaign: Campaign;
   brandId: string;
   expiryDays: number | null;
   onClose: () => void;
-  onGenerated: () => void;
+  onDone: () => void;
 }) {
-  const [handle, setHandle] = useState("");
+  const [tab, setTab] = useState<"rubrica" | "nuovi">("rubrica");
+  const [creators, setCreators] = useState<Creator[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [newHandles, setNewHandles] = useState("");
+  const [search, setSearch] = useState("");
   const [productName, setProductName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [results, setResults] = useState<{ handle: string; link: string }[] | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
 
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!handle.trim()) return setError("Inserisci l'handle del creator.");
-    setError(null);
-    setSaving(true);
-    const cleanHandle = handle.trim().replace(/^@/, "");
-    const expiresAt = expiryDays
-      ? new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString()
-      : null;
-    const { data, error } = await supabase
-      .from("gifts")
-      .insert({
-        campaign_id: campaign.id,
-        brand_id: brandId,
-        instagram_handle: "@" + cleanHandle,
-        product_name: productName || null,
-        expires_at: expiresAt,
-      })
-      .select("token")
-      .single();
-    setSaving(false);
-    if (error) setError(error.message);
-    else setGeneratedLink(`${window.location.origin}/g/${data.token}`);
+  useEffect(() => {
+    supabase
+      .from("creators")
+      .select("*")
+      .eq("brand_id", brandId)
+      .order("instagram_handle")
+      .then(({ data }) => setCreators((data as Creator[]) || []));
+  }, [brandId]);
+
+  function parseNew(): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const part of newHandles.split(/[\n,;]/)) {
+      const t = part.trim().replace(/^@/, "");
+      if (!t) continue;
+      const h = "@" + t;
+      if (!seen.has(h)) {
+        seen.add(h);
+        out.push(h);
+      }
+    }
+    return out;
   }
 
+  const handles = tab === "rubrica" ? [...selected] : parseNew();
+
+  async function generate() {
+    if (handles.length === 0) return setError("Seleziona almeno un creator.");
+    setError(null);
+    setSaving(true);
+
+    const expiresAt = expiryDays ? new Date(Date.now() + expiryDays * 864e5).toISOString() : null;
+
+    // 1. crea i regali
+    const { data, error } = await supabase
+      .from("gifts")
+      .insert(
+        handles.map((h) => ({
+          campaign_id: campaign.id,
+          brand_id: brandId,
+          instagram_handle: h,
+          product_name: productName || null,
+          expires_at: expiresAt,
+        }))
+      )
+      .select("instagram_handle, token");
+
+    if (error) {
+      setSaving(false);
+      return setError(error.message);
+    }
+
+    // 2. i nuovi handle entrano in rubrica automaticamente
+    await supabase
+      .from("creators")
+      .upsert(
+        handles.map((h) => ({ brand_id: brandId, instagram_handle: h })),
+        { onConflict: "brand_id,instagram_handle", ignoreDuplicates: true }
+      );
+
+    setSaving(false);
+    setResults(
+      (data as { instagram_handle: string; token: string }[]).map((d) => ({
+        handle: d.instagram_handle,
+        link: `${window.location.origin}/g/${d.token}`,
+      }))
+    );
+  }
+
+  function copyAll() {
+    if (!results) return;
+    navigator.clipboard.writeText(results.map((r) => `${r.handle}\t${r.link}`).join("\n"));
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2000);
+  }
+
+  const filteredCreators = creators.filter((c) =>
+    c.instagram_handle.toLowerCase().includes(search.toLowerCase()) ||
+    (c.name || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  /* ---------------------------- Schermata risultati --------------------------- */
+  if (results) {
+    return (
+      <Card className="mb-6 p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900">
+            {results.length} {results.length === 1 ? "link generato" : "link generati"}
+          </h2>
+          <button onClick={onDone} className="text-gray-400 hover:text-gray-600">&#10005;</button>
+        </div>
+
+        <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border border-gray-200">
+          {results.map((r) => (
+            <div key={r.link} className="flex items-center gap-3 border-b border-gray-100 px-3 py-2.5 last:border-0">
+              <span className="w-36 shrink-0 truncate text-sm font-medium text-gray-900">{r.handle}</span>
+              <span className="flex-1 truncate text-xs text-gray-500">{r.link}</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(r.link)}
+                className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-brand hover:bg-blue-50"
+              >
+                Copia
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button onClick={copyAll}>{copiedAll ? "Copiati" : "Copia tutti"}</Button>
+          <Button
+            variant="secondary"
+            onClick={() => downloadCSV([["Creator", "Link"], ...results.map((r) => [r.handle, r.link])], `${campaign.name}-link.csv`)}
+          >
+            Esporta CSV
+          </Button>
+          <Button variant="ghost" onClick={onDone}>Fatto</Button>
+        </div>
+        <p className="mt-3 text-xs text-gray-400">
+          Potrai ricopiare ogni link dalla tabella qui sotto.
+          {expiryDays ? ` Scadono tra ${expiryDays} giorni.` : ""}
+        </p>
+      </Card>
+    );
+  }
+
+  /* ----------------------------- Schermata scelta ----------------------------- */
   return (
     <Card className="mb-6 p-6">
       <div className="flex items-center justify-between">
@@ -281,61 +355,103 @@ function GenerateLinkForm({
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&#10005;</button>
       </div>
 
-      {!generatedLink ? (
-        <form onSubmit={handleGenerate} className="mt-4 space-y-4">
-          <Input label="Handle Instagram del creator" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="@sophie.creates" />
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-gray-700">Prodotto (opzionale)</span>
-            <select
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-            >
-              <option value="">Il creator sceglie tra tutti i prodotti</option>
-              {campaign.products.map((p, i) => (
-                <option key={i} value={p.name}>{p.name}</option>
-              ))}
-            </select>
-          </label>
-          {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
-          <Button type="submit" disabled={saving}>{saving ? "Generazione..." : "Genera link"}</Button>
-        </form>
+      <div className="mt-4 flex gap-1 rounded-lg bg-gray-100 p-1">
+        <button
+          onClick={() => setTab("rubrica")}
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${tab === "rubrica" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+        >
+          Dalla rubrica ({creators.length})
+        </button>
+        <button
+          onClick={() => setTab("nuovi")}
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${tab === "nuovi" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+        >
+          Nuovi handle
+        </button>
+      </div>
+
+      {tab === "rubrica" ? (
+        <div className="mt-4">
+          {creators.length === 0 ? (
+            <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+              Rubrica vuota. Usa "Nuovi handle": i creator verranno aggiunti in automatico.
+            </p>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center gap-2">
+                <Input placeholder="Cerca..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1" />
+                <button
+                  onClick={() =>
+                    setSelected(
+                      selected.size === filteredCreators.length
+                        ? new Set()
+                        : new Set(filteredCreators.map((c) => c.instagram_handle))
+                    )
+                  }
+                  className="shrink-0 whitespace-nowrap text-xs font-medium text-brand hover:underline"
+                >
+                  {selected.size === filteredCreators.length ? "Deseleziona tutti" : "Seleziona tutti"}
+                </button>
+              </div>
+
+              <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200">
+                {filteredCreators.map((c) => (
+                  <label key={c.id} className="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2.5 last:border-0 hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.instagram_handle)}
+                      onChange={(e) => {
+                        const next = new Set(selected);
+                        if (e.target.checked) next.add(c.instagram_handle);
+                        else next.delete(c.instagram_handle);
+                        setSelected(next);
+                      }}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium text-gray-900">{c.instagram_handle}</span>
+                    {c.name && <span className="text-xs text-gray-500">{c.name}</span>}
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       ) : (
         <div className="mt-4">
-          <p className="text-sm text-gray-600">
-            Link per <strong>@{handle.replace(/^@/, "")}</strong> pronto. Copialo e invialo in DM:
-          </p>
-          <div className="mt-3 flex items-center gap-2 rounded-lg bg-gray-50 p-3">
-            <span className="flex-1 truncate text-sm text-gray-700">{generatedLink}</span>
-            <Button
-              onClick={() => {
-                navigator.clipboard.writeText(generatedLink);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-            >
-              {copied ? "Copiato" : "Copia"}
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-gray-400">
-            Potrai ricopiare questo link in qualsiasi momento dalla tabella.
-            {expiryDays ? ` Scade tra ${expiryDays} giorni.` : ""}
-          </p>
-          <div className="mt-4 flex gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setGeneratedLink(null);
-                setHandle("");
-                setProductName("");
-              }}
-            >
-              + Genera un altro
-            </Button>
-            <Button variant="ghost" onClick={onGenerated}>Fatto</Button>
-          </div>
+          <textarea
+            value={newHandles}
+            onChange={(e) => setNewHandles(e.target.value)}
+            rows={5}
+            placeholder={"@sophie.creates\n@mayaruns\n@jordan.kim"}
+            className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 font-mono text-xs outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          />
+          <p className="mt-1.5 text-xs text-gray-400">Uno per riga, oppure separati da virgola. Verranno aggiunti alla rubrica.</p>
         </div>
       )}
+
+      <label className="mt-5 block">
+        <span className="mb-1.5 block text-sm font-medium text-gray-700">Prodotto (opzionale)</span>
+        <select
+          value={productName}
+          onChange={(e) => setProductName(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        >
+          <option value="">Il creator sceglie tra tutti i prodotti</option>
+          {campaign.products.map((p, i) => (
+            <option key={i} value={p.name}>{p.name}</option>
+          ))}
+        </select>
+      </label>
+
+      {error && <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+
+      <div className="mt-5 flex items-center gap-3">
+        <Button onClick={generate} disabled={saving || handles.length === 0}>
+          {saving ? "Generazione..." : handles.length > 1 ? `Genera ${handles.length} link` : "Genera link"}
+        </Button>
+        <Button variant="ghost" onClick={onClose}>Annulla</Button>
+        {handles.length > 0 && <span className="text-sm text-gray-500">{handles.length} selezionati</span>}
+      </div>
     </Card>
   );
 }
