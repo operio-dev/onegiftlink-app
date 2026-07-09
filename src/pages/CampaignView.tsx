@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import type { Campaign, Gift, GiftStatus, Creator } from "../lib/types";
 import { Button, Input, Card, Badge, Spinner } from "../components/ui";
+import AddContentModal from "../components/AddContentModal";
 
 const STATUS: Record<GiftStatus, { label: string; color: "gray" | "blue" | "green" | "amber" }> = {
   sent: { label: "Inviato", color: "gray" },
@@ -21,6 +22,7 @@ export default function CampaignView() {
   const [showGen, setShowGen] = useState(false);
   const [q, setQ] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [contentFor, setContentFor] = useState<Gift | null>(null);
 
   async function load() {
     if (!id) return;
@@ -41,6 +43,7 @@ export default function CampaignView() {
     const next = gift.posted === true ? false : gift.posted === false ? null : true;
     await supabase.from("gifts").update({ posted: next }).eq("id", gift.id);
     setGifts((prev) => prev.map((x) => (x.id === gift.id ? { ...x, posted: next } : x)));
+    if (next === true) setContentFor({ ...gift, posted: true });
   }
 
   async function markShipped(gift: Gift) {
@@ -106,6 +109,16 @@ export default function CampaignView() {
         <Card className="p-5"><p className="text-sm text-gray-500">Hanno postato</p><p className="mt-1 text-2xl font-semibold">{posted}</p></Card>
       </div>
 
+      {contentFor && brand && (
+        <AddContentModal
+          brandId={brand.id}
+          creatorHandle={contentFor.instagram_handle}
+          giftId={contentFor.id}
+          onClose={() => setContentFor(null)}
+          onSaved={() => setContentFor(null)}
+        />
+      )}
+
       {showGen && brand && (
         <GenerateLinks
           campaign={campaign}
@@ -144,7 +157,11 @@ export default function CampaignView() {
                 <tbody>
                   {filtered.map((g) => (
                     <tr key={g.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{g.instagram_handle}</td>
+                      <td className="px-4 py-3">
+                        <Link to={`/creator/${encodeURIComponent(g.instagram_handle)}`} className="font-medium text-gray-900 hover:underline">
+                          {g.instagram_handle}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-gray-600">
                         {g.product_name || <span className="text-gray-400">a scelta</span>}
                         {g.selected_color && <span className="text-gray-400"> - {g.selected_color}</span>}
