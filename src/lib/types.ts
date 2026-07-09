@@ -11,6 +11,10 @@ export interface Brand {
   user_id: string;
   name: string;
   logo_url: string | null;
+  accent_color: string | null;
+  welcome_message: string | null;
+  default_expiry_days: number | null;
+  default_country: string | null;
   created_at: string;
 }
 
@@ -52,6 +56,9 @@ export interface GiftPublicView {
   campaign_id: string;
   brand_name: string;
   brand_logo: string | null;
+  brand_accent: string | null;
+  brand_welcome: string | null;
+  brand_country: string | null;
   products: Product[];
   product_name: string | null;
   status: GiftStatus;
