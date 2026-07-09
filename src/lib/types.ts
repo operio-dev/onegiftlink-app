@@ -27,6 +27,16 @@ export interface Campaign {
   created_at: string;
 }
 
+export interface Creator {
+  id: string;
+  brand_id: string;
+  instagram_handle: string;
+  name: string | null;
+  email: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export type GiftStatus = "sent" | "opened" | "completed" | "shipped";
 
 export interface Gift {
