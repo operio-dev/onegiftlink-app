@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import type { Gift, Creator } from "../lib/types";
@@ -147,7 +148,9 @@ export default function CreatorsPage() {
                     return (
                       <tr key={r.handle} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
                         <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900">{r.handle}</p>
+                          <Link to={`/creator/${encodeURIComponent(r.handle)}`} className="font-medium text-gray-900 hover:underline">
+                            {r.handle}
+                          </Link>
                           {r.name && <p className="text-xs text-gray-500">{r.name}</p>}
                         </td>
                         <td className="px-4 py-3 text-gray-600">{r.total || <span className="text-gray-400">-</span>}</td>
