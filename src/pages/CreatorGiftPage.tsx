@@ -19,6 +19,7 @@ export default function CreatorGiftPage() {
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
   const [country, setCountry] = useState("Italia");
+  const accent = gift?.brand_accent || "#111111";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +34,7 @@ export default function CreatorGiftPage() {
       }
       const g = data[0] as GiftPublicView;
       setGift(g);
+      if (g.brand_country) setCountry(g.brand_country);
       if (g.status === "completed" || g.status === "shipped") setDone(true);
       if (g.product_name) {
         const p = g.products.find((x) => x.name === g.product_name);
@@ -85,7 +87,7 @@ export default function CreatorGiftPage() {
         <div className="text-5xl">🔗</div>
         <h1 className="mt-4 text-xl font-semibold text-gray-900">Link non valido</h1>
         <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          Questo link non esiste o è scaduto. Contatta il brand per riceverne uno nuovo.
+          Questo link non esiste, è scaduto o è già stato usato. Contatta il brand per riceverne uno nuovo.
         </p>
       </CenterCard>
     );
@@ -125,6 +127,11 @@ export default function CreatorGiftPage() {
                 {gift.brand_name}
               </p>
             )}
+            {gift.brand_welcome && (
+              <p className="mx-auto mt-4 max-w-xs text-sm leading-relaxed text-gray-500">
+                {gift.brand_welcome}
+              </p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6 px-6 py-7">
@@ -160,9 +167,10 @@ export default function CreatorGiftPage() {
                         setColor("");
                         setSize("");
                       }}
+                      style={selectedProduct?.name === p.name ? { backgroundColor: accent, borderColor: accent } : undefined}
                       className={`rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-all ${
                         selectedProduct?.name === p.name
-                          ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                          ? "text-white shadow-sm"
                           : "border-gray-200 text-gray-700 hover:border-gray-400"
                       }`}
                     >
@@ -185,10 +193,9 @@ export default function CreatorGiftPage() {
                           key={c}
                           type="button"
                           onClick={() => setColor(c)}
+                          style={color === c ? { backgroundColor: accent, borderColor: accent } : undefined}
                           className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                            color === c
-                              ? "border-gray-900 bg-gray-900 text-white"
-                              : "border-gray-200 text-gray-700 hover:border-gray-400"
+                            color === c ? "text-white" : "border-gray-200 text-gray-700 hover:border-gray-400"
                           }`}
                         >
                           {c}
@@ -208,10 +215,9 @@ export default function CreatorGiftPage() {
                           key={s}
                           type="button"
                           onClick={() => setSize(s)}
+                          style={size === s ? { backgroundColor: accent, borderColor: accent } : undefined}
                           className={`min-w-[3.25rem] rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                            size === s
-                              ? "border-gray-900 bg-gray-900 text-white"
-                              : "border-gray-200 text-gray-700 hover:border-gray-400"
+                            size === s ? "text-white" : "border-gray-200 text-gray-700 hover:border-gray-400"
                           }`}
                         >
                           {s}
@@ -242,7 +248,8 @@ export default function CreatorGiftPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-xl bg-gray-900 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-black disabled:opacity-50"
+              style={{ backgroundColor: accent }}
+              className="w-full rounded-xl py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {submitting ? "Invio…" : "Ricevi il tuo regalo 🎁"}
             </button>
