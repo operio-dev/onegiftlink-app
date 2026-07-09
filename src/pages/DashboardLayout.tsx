@@ -1,9 +1,8 @@
-import { useState } from "react";
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
-import { Button, Input, Card } from "../components/ui";
+import { Button, Card } from "../components/ui";
 
 const IconOverview = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
@@ -28,10 +27,18 @@ const IconCreators = () => (
   </svg>
 );
 
+const IconSettings = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+  </svg>
+);
+
 const NAV = [
   { to: "/", label: "Panoramica", icon: IconOverview, end: true },
   { to: "/campagne", label: "Campagne", icon: IconCampaigns, end: false },
   { to: "/creator", label: "Creator", icon: IconCreators, end: false },
+  { to: "/impostazioni", label: "Impostazioni", icon: IconSettings, end: false },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -120,83 +127,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 }
 
 function SetupBanner() {
-  const { session, brand, refreshBrand } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(brand?.name || "");
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!session?.user) return;
-    setError(null);
-    setSaving(true);
-
-    let logoUrl = brand?.logo_url || null;
-
-    if (logoFile) {
-      const ext = logoFile.name.split(".").pop();
-      const path = `${session.user.id}/logo.${ext}`;
-      const { error: upErr } = await supabase.storage.from("logos").upload(path, logoFile, { upsert: true });
-      if (upErr) {
-        setSaving(false);
-        setError("Errore nel caricamento del logo: " + upErr.message);
-        return;
-      }
-      const { data } = supabase.storage.from("logos").getPublicUrl(path);
-      logoUrl = `${data.publicUrl}?v=${Date.now()}`;
-    }
-
-    const { error: dbErr } = await supabase
-      .from("brands")
-      .upsert({ user_id: session.user.id, name, logo_url: logoUrl }, { onConflict: "user_id" });
-
-    setSaving(false);
-    if (dbErr) setError(dbErr.message);
-    else {
-      await refreshBrand();
-      setOpen(false);
-    }
-  }
-
-  if (!open) {
-    return (
-      <Card className="mb-6 flex flex-col items-start gap-3 border-blue-200 bg-blue-50/50 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-600">&#10024;</div>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Personalizza il tuo link regalo</p>
-            <p className="text-sm text-gray-600">
-              Aggiungi logo e nome del brand: e cio che i creator vedranno aprendo il link.
-            </p>
-          </div>
-        </div>
-        <Button onClick={() => setOpen(true)}>Completa il setup</Button>
-      </Card>
-    );
-  }
-
   return (
-    <Card className="mb-6 p-6">
-      <h2 className="text-base font-semibold text-gray-900">Setup del brand</h2>
-      <form onSubmit={handleSave} className="mt-4 space-y-4">
-        <Input label="Nome del brand" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Maison Noir" />
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-gray-700">Logo</span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-            className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-gray-200"
-          />
-        </label>
-        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
-        <div className="flex gap-2">
-          <Button type="submit" disabled={saving}>{saving ? "Salvataggio..." : "Salva"}</Button>
-          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Annulla</Button>
+    <Card className="mb-6 flex flex-col items-start gap-3 border-blue-200 bg-blue-50/50 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-600">&#10024;</div>
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Personalizza il tuo link regalo</p>
+          <p className="text-sm text-gray-600">
+            Aggiungi logo e nome del brand: e cio che i creator vedranno aprendo il link.
+          </p>
         </div>
-      </form>
+      </div>
+      <Link to="/impostazioni">
+        <Button>Completa il setup</Button>
+      </Link>
     </Card>
   );
 }
